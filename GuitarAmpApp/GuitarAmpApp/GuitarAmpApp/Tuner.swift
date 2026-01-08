@@ -1,6 +1,7 @@
 import Foundation
 import Accelerate
 import AVFoundation
+import Combine
 
 class Tuner: ObservableObject {
     @Published var frequency: Float = 0.0

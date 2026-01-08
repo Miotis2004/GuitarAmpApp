@@ -51,7 +51,7 @@ struct CabSimView: View {
             }) {
                 HStack {
                     Image(systemName: "folder")
-                    Text(cabSim.irFileName ?? "Load IR...")
+                    Text(cabSim.irFileName ?? "Simulate IR File...")
                         .font(.caption)
                 }
                 .frame(maxWidth: .infinity)

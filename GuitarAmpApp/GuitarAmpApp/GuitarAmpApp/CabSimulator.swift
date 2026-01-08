@@ -1,5 +1,6 @@
 import AVFoundation
 import Foundation
+import Combine
 
 enum CabModel: String, CaseIterable, Identifiable {
     case bypass = "Bypass"
@@ -7,7 +8,7 @@ enum CabModel: String, CaseIterable, Identifiable {
     case modern4x12 = "4x12 Modern"   // Scooped mids, tight lows
     case tweed1x12 = "1x12 Tweed"     // Boxy, mid-heavy
     case bass8x10 = "8x10 Bass"       // Deep lows, no highs
-    case customIR = "Custom IR (Sim)" // Placeholder for IR
+    case customIR = "Simulate IR (EQ Match)" // Placeholder for IR
 
     var id: String { rawValue }
 }
@@ -73,12 +74,9 @@ class CabSimulator: ObservableObject {
             setBand(2, type: .parametric, freq: 200, gain: 3, q: 1.0)
 
         case .customIR:
-            // Placeholder for Convolution
-            // Note: True Convolution requires loading the WAV file into a DSP buffer and performing
-            // time-domain or frequency-domain convolution. This is not supported by standard AVAudioUnit nodes
-            // without using external C++ Audio Units or third-party frameworks like AudioKit.
-            // For this sandbox implementation, we fallback to a "Mastered" EQ curve that simulates a
-            // detailed generic cabinet response when an IR is "loaded".
+            // Simulates a "Mastered" cabinet response using EQ matching.
+            // This is a placeholder for true Impulse Response convolution which requires
+            // external DSP libraries not available in this standard library implementation.
 
             // Apply a "Smile" curve often found in polished IRs
             setBand(0, type: .lowPass, freq: 7500, gain: 0, q: 0.5)
