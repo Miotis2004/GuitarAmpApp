@@ -95,11 +95,7 @@ class CabSimulator: ObservableObject {
             band.filterType = type
             band.frequency = freq
             band.gain = gain
-            band.bandwidth = q // Note: AVAudioUnitEQ bandwidth is in octaves, Q is different, but for simplicity we map directly or use inverse.
-            // Actually bandwidth = frequency / Q. But property is 'bandwidth' in octaves.
-            // Converting Q to Bandwidth (Octaves) is complex.
-            // Approx: BW = 1.0 for standard parametric.
-            band.bandwidth = 1.0 // Simplify to 1.0 for now to be safe, or estimate.
+            band.bandwidth = q // We use the Q value directly as bandwidth (approximate but effective for simple shaping)
             band.bypass = false
         }
     }

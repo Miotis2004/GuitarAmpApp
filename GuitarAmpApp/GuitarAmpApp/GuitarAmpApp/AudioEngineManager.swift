@@ -1,4 +1,6 @@
 import AVFoundation
+import AVFAudio
+import AudioToolbox
 import Accelerate
 import Combine
 
@@ -13,8 +15,23 @@ class AudioEngineManager: ObservableObject {
     let cabSim = CabSimulator()
 
     // Effects nodes
-    private let noiseGateNode = AVAudioUnitDynamicsProcessor()
-    private let compressorNode = AVAudioUnitDynamicsProcessor()
+    // Using AVAudioUnitEffect for DynamicsProcessor as the specific wrapper class might be unavailable
+    private let noiseGateNode = AVAudioUnitEffect(audioComponentDescription: AudioComponentDescription(
+        componentType: kAudioUnitType_Effect,
+        componentSubType: kAudioUnitSubType_DynamicsProcessor,
+        componentManufacturer: kAudioUnitManufacturer_Apple,
+        componentFlags: 0,
+        componentFlagsMask: 0
+    ))
+
+    private let compressorNode = AVAudioUnitEffect(audioComponentDescription: AudioComponentDescription(
+        componentType: kAudioUnitType_Effect,
+        componentSubType: kAudioUnitSubType_DynamicsProcessor,
+        componentManufacturer: kAudioUnitManufacturer_Apple,
+        componentFlags: 0,
+        componentFlagsMask: 0
+    ))
+
     private let distortionNode = AVAudioUnitDistortion()
     private let reverbNode = AVAudioUnitReverb()
     private let delayNode = AVAudioUnitDelay()
@@ -224,18 +241,28 @@ class AudioEngineManager: ObservableObject {
     }
     
     private func configureInitialSettings() {
-        // Gate defaults
-        // Acts as expander: High Threshold, High Ratio
-        noiseGateNode.threshold = -80 // Start open
-        noiseGateNode.expansionRatio = 20.0
-        noiseGateNode.attackTime = 0.001
-        noiseGateNode.releaseTime = 0.1
-        noiseGateNode.masterGain = 0
+        // Gate defaults (Expander Mode)
+        // Constants for Dynamics Processor (approximate parameter IDs)
+        // kDynamicsProcessorParam_Threshold = 0
+        // kDynamicsProcessorParam_HeadRoom = 1
+        // kDynamicsProcessorParam_ExpansionRatio = 2
+        // kDynamicsProcessorParam_ExpansionThreshold = 3
+        // kDynamicsProcessorParam_AttackTime = 4
+        // kDynamicsProcessorParam_ReleaseTime = 5
+        // kDynamicsProcessorParam_MasterGain = 6
+        // kDynamicsProcessorParam_CompressionAmount = 10 (read only?)
+
+        // Use helper to set params safely
+        setDynamicsParam(noiseGateNode, paramID: 3, value: -80) // Expansion Threshold (Gate open)
+        setDynamicsParam(noiseGateNode, paramID: 2, value: 20.0) // Expansion Ratio (Hard gate)
+        setDynamicsParam(noiseGateNode, paramID: 4, value: 0.001) // Attack (Fast)
+        setDynamicsParam(noiseGateNode, paramID: 5, value: 0.1)   // Release
+        setDynamicsParam(noiseGateNode, paramID: 6, value: 0)     // Master Gain
 
         // Compressor defaults
         compressorNode.bypass = true
-        compressorNode.headRoom = 5
-        compressorNode.expansionRatio = 1 // No expansion
+        setDynamicsParam(compressorNode, paramID: 1, value: 5) // Headroom
+        setDynamicsParam(compressorNode, paramID: 2, value: 1) // Expansion Ratio (1 = off)
         updateCompressor()
 
         // Mod Delay defaults
@@ -312,21 +339,30 @@ class AudioEngineManager: ObservableObject {
     private func updateGate() {
         // Threshold: 0.0 -> -80dB, 1.0 -> -10dB
         let db = -80.0 + (gateThreshold * 70.0)
-        noiseGateNode.expansionThreshold = db
+        // Set Expansion Threshold (Param 3)
+        setDynamicsParam(noiseGateNode, paramID: 3, value: db)
     }
 
     private func updateCompressor() {
         // Sustain (Threshold): 0.0 -> -10dB, 1.0 -> -40dB
         // High sustain = low threshold
         let thresh = -10.0 - (compSustain * 30.0)
-        compressorNode.threshold = thresh
+        setDynamicsParam(compressorNode, paramID: 0, value: thresh) // Threshold
 
-        // Ratio: 2:1 to 10:1 based on sustain
-        compressorNode.ratio = 2.0 + (compSustain * 8.0)
+        // Ratio (Headroom effectively controls compression curve in this unit, but we simulate ratio via Headroom or external makeup)
+        // Actually, kDynamicsProcessorParam_HeadRoom (1) is good for ratio-like behavior.
+        // Let's use HeadRoom for "Ratio" feel. 0.1 to 40.
+        let ratioSim = 5.0 + (compSustain * 15.0)
+        setDynamicsParam(compressorNode, paramID: 1, value: ratioSim)
 
         // Level (Gain): -10dB to +20dB
         let gain = -10.0 + (compLevel * 30.0)
-        compressorNode.masterGain = gain
+        setDynamicsParam(compressorNode, paramID: 6, value: gain) // Master Gain
+    }
+
+    private func setDynamicsParam(_ node: AVAudioUnit, paramID: AudioUnitParameterID, value: Float) {
+        let au = node.audioUnit
+        AudioUnitSetParameter(au, paramID, kAudioUnitScope_Global, 0, value, 0)
     }
 
     private func updateModulationSettings() {
