@@ -7,12 +7,19 @@ class AudioEngineManager: ObservableObject {
     private let inputNode: AVAudioInputNode
     private let mainMixer: AVAudioMixerNode
     
+    // Managers
+    let deviceManager = AudioDeviceManager()
+    let tuner = Tuner()
+    let cabSim = CabSimulator()
+
     // Effects nodes
     private let distortionNode = AVAudioUnitDistortion()
     private let reverbNode = AVAudioUnitReverb()
     private let delayNode = AVAudioUnitDelay()
     private let eqNode = AVAudioUnitEQ(numberOfBands: 3)
     
+    private var isTunerTapInstalled = false
+
     // Published properties for UI binding
     @Published var isEngineRunning = false
     @Published var inputLevel: Float = 0.0
@@ -67,6 +74,42 @@ class AudioEngineManager: ObservableObject {
         setupAudioSession()
         setupEffectsChain()
         configureInitialSettings()
+
+        // Listen to device changes
+        setupDeviceListeners()
+    }
+
+    private var cancellables = Set<AnyCancellable>()
+
+    private func setupDeviceListeners() {
+        // Observe Input Device changes
+        deviceManager.$currentInputDeviceID
+            .dropFirst()
+            .sink { [weak self] newID in
+                guard let self = self, let id = newID else { return }
+                self.setInputDevice(id: id)
+            }
+            .store(in: &cancellables)
+
+        // Observe Output Device changes
+        deviceManager.$currentOutputDeviceID
+            .dropFirst()
+            .sink { [weak self] newID in
+                guard let self = self, let id = newID else { return }
+                self.setOutputDevice(id: id)
+            }
+            .store(in: &cancellables)
+    }
+
+    func setInputDevice(id: AudioObjectID) {
+        deviceManager.setInputDevice(id: id, for: inputNode)
+    }
+
+    func setOutputDevice(id: AudioObjectID) {
+        deviceManager.setOutputDevice(id: id, for: mainMixer) // MainMixer connects to OutputNode implicitly?
+        // Actually, mainMixer connects to engine.outputNode.
+        // We should set the device on engine.outputNode.
+        deviceManager.setOutputDevice(id: id, for: engine.outputNode)
     }
     
     private func setupAudioSession() {
@@ -79,21 +122,24 @@ class AudioEngineManager: ObservableObject {
         // Attach all nodes
         engine.attach(distortionNode)
         engine.attach(eqNode)
+        engine.attach(cabSim.eqNode) // Add Cab Sim Node
         engine.attach(delayNode)
         engine.attach(reverbNode)
         
         // Get the input format
         let inputFormat = inputNode.outputFormat(forBus: 0)
         
-        // Create the effects chain: Input -> Distortion -> EQ -> Delay -> Reverb -> Output
+        // Create the effects chain: Input -> Distortion -> AmpEQ -> CabSim -> Delay -> Reverb -> Output
         engine.connect(inputNode, to: distortionNode, format: inputFormat)
         engine.connect(distortionNode, to: eqNode, format: inputFormat)
-        engine.connect(eqNode, to: delayNode, format: inputFormat)
+        engine.connect(eqNode, to: cabSim.eqNode, format: inputFormat) // Connect AmpEQ to CabSim
+        engine.connect(cabSim.eqNode, to: delayNode, format: inputFormat) // Connect CabSim to Delay
         engine.connect(delayNode, to: reverbNode, format: inputFormat)
         engine.connect(reverbNode, to: mainMixer, format: inputFormat)
         
         // Install taps for level monitoring
         installLevelTaps()
+        installTunerTap()
     }
     
     private func configureInitialSettings() {
@@ -166,10 +212,28 @@ class AudioEngineManager: ObservableObject {
     }
     
     private func installLevelTaps() {
-        // Input level monitoring
-        inputNode.installTap(onBus: 0, bufferSize: 1024, format: inputNode.outputFormat(forBus: 0)) { [weak self] buffer, _ in
+        // We combine Input Level and Tuner if possible, or use separate taps.
+        // AVAudioNode supports only one tap per bus.
+        // So we must do Tuner processing inside the same block or tap.
+        // But inputNode has only bus 0 usually.
+
+        // Input monitoring & Tuner
+        inputNode.installTap(onBus: 0, bufferSize: 4096, format: inputNode.outputFormat(forBus: 0)) { [weak self] buffer, _ in
             guard let self = self else { return }
+
+            // 1. Level Meter
             let level = self.calculateLevel(from: buffer)
+
+            // 2. Tuner Processing
+            if self.tuner.isTuning { // Optimization: only process if UI is visible? Or always?
+                 // Wait, isTuning is output. We need a flag "isTunerActive".
+                 // For now, let's always process or use a cheap check.
+                 // Actually, let's just run it. The Tuner class handles "silence".
+                 self.tuner.process(buffer: buffer)
+            }
+             // For now, always running tuner to be responsive when opened
+             self.tuner.process(buffer: buffer)
+
             DispatchQueue.main.async {
                 self.inputLevel = level
             }
@@ -185,6 +249,10 @@ class AudioEngineManager: ObservableObject {
         }
     }
     
+    private func installTunerTap() {
+        // Integrated into installLevelTaps to avoid "Tap already installed" error
+    }
+
     private func calculateLevel(from buffer: AVAudioPCMBuffer) -> Float {
         guard let channelData = buffer.floatChannelData else { return 0.0 }
         

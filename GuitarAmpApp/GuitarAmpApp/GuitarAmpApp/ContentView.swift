@@ -3,6 +3,8 @@ import SwiftUI
 struct ContentView: View {
     @StateObject private var audioEngine = AudioEngineManager()
     @State private var showingPermissionAlert = false
+    @State private var showingSettings = false
+    @State private var showingTuner = false
     
     var body: some View {
         ZStack {
@@ -69,6 +71,29 @@ struct ContentView: View {
             Spacer()
             
             // Power button
+            // Settings Button
+            Button(action: { showingSettings = true }) {
+                Image(systemName: "gearshape.fill")
+                    .font(.system(size: 20))
+                    .foregroundColor(.gray)
+            }
+            .buttonStyle(.plain)
+            .popover(isPresented: $showingSettings) {
+                SettingsView(deviceManager: audioEngine.deviceManager)
+            }
+
+            // Tuner Button
+            Button(action: { showingTuner = true }) {
+                Image(systemName: "tuningfork")
+                    .font(.system(size: 20))
+                    .foregroundColor(showingTuner ? .orange : .gray)
+            }
+            .buttonStyle(.plain)
+            .sheet(isPresented: $showingTuner) {
+                TunerView(tuner: audioEngine.tuner)
+            }
+
+            // Power button
             Button(action: {
                 if audioEngine.isEngineRunning {
                     audioEngine.stop()
@@ -94,23 +119,9 @@ struct ContentView: View {
             Image(systemName: "arrow.right")
                 .foregroundColor(.orange)
             
-            Text("OVERDRIVE")
+            Text("OD")
                 .font(.caption)
                 .foregroundColor(audioEngine.distortionEnabled ? .orange : .gray)
-            
-            Image(systemName: "arrow.right")
-                .foregroundColor(.orange)
-            
-            Text("DELAY")
-                .font(.caption)
-                .foregroundColor(audioEngine.delayEnabled ? .orange : .gray)
-            
-            Image(systemName: "arrow.right")
-                .foregroundColor(.orange)
-            
-            Text("REVERB")
-                .font(.caption)
-                .foregroundColor(audioEngine.reverbEnabled ? .orange : .gray)
             
             Image(systemName: "arrow.right")
                 .foregroundColor(.orange)
@@ -122,7 +133,28 @@ struct ContentView: View {
             Image(systemName: "arrow.right")
                 .foregroundColor(.orange)
             
-            Text("OUTPUT")
+            Text("CAB")
+                .font(.caption)
+                .foregroundColor(audioEngine.cabSim.activeModel != .bypass ? .green : .gray)
+            
+            Image(systemName: "arrow.right")
+                .foregroundColor(.orange)
+            
+            Text("DLY")
+                .font(.caption)
+                .foregroundColor(audioEngine.delayEnabled ? .orange : .gray)
+
+            Image(systemName: "arrow.right")
+                .foregroundColor(.orange)
+            
+            Text("REV")
+                .font(.caption)
+                .foregroundColor(audioEngine.reverbEnabled ? .orange : .gray)
+
+            Image(systemName: "arrow.right")
+                .foregroundColor(.orange)
+            
+            Text("OUT")
                 .font(.caption)
                 .foregroundColor(.gray)
         }
