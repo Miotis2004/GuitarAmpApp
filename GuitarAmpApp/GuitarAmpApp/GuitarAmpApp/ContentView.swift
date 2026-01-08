@@ -26,7 +26,15 @@ struct ContentView: View {
                 // Pedal board
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 30) {
+                        // Pre-Amp
+                        NoiseGateView(audioEngine: audioEngine)
+                        CompressorPedalView(audioEngine: audioEngine)
                         OverdrivePedalView(audioEngine: audioEngine)
+
+                        Divider().background(Color.gray)
+
+                        // FX Loop (Logically here, visually grouping pedals)
+                        ModulationPedalView(audioEngine: audioEngine)
                         DelayPedalView(audioEngine: audioEngine)
                         ReverbPedalView(audioEngine: audioEngine)
                     }
@@ -112,51 +120,40 @@ struct ContentView: View {
     
     private var signalFlowView: some View {
         HStack(spacing: 8) {
-            Text("INPUT")
+            Text("IN")
                 .font(.caption)
                 .foregroundColor(.gray)
             
-            Image(systemName: "arrow.right")
-                .foregroundColor(.orange)
-            
-            Text("OD")
-                .font(.caption)
-                .foregroundColor(audioEngine.distortionEnabled ? .orange : .gray)
-            
-            Image(systemName: "arrow.right")
-                .foregroundColor(.orange)
-            
-            Text("AMP")
-                .font(.caption)
-                .foregroundColor(.orange)
-            
-            Image(systemName: "arrow.right")
-                .foregroundColor(.orange)
-            
-            Text("CAB")
-                .font(.caption)
-                .foregroundColor(audioEngine.cabSim.activeModel != .bypass ? .green : .gray)
-            
-            Image(systemName: "arrow.right")
-                .foregroundColor(.orange)
-            
-            Text("DLY")
-                .font(.caption)
-                .foregroundColor(audioEngine.delayEnabled ? .orange : .gray)
+            Group {
+                Image(systemName: "arrow.right").foregroundColor(.gray)
+                Text("GATE").font(.caption).foregroundColor(audioEngine.gateThreshold > 0 ? .green : .gray)
 
-            Image(systemName: "arrow.right")
-                .foregroundColor(.orange)
-            
-            Text("REV")
-                .font(.caption)
-                .foregroundColor(audioEngine.reverbEnabled ? .orange : .gray)
+                Image(systemName: "arrow.right").foregroundColor(.gray)
+                Text("CMP").font(.caption).foregroundColor(audioEngine.compEnabled ? .orange : .gray)
 
-            Image(systemName: "arrow.right")
-                .foregroundColor(.orange)
+                Image(systemName: "arrow.right").foregroundColor(.gray)
+                Text("OD").font(.caption).foregroundColor(audioEngine.distortionEnabled ? .orange : .gray)
+
+                Image(systemName: "arrow.right").foregroundColor(.gray)
+                Text("AMP").font(.caption).foregroundColor(.orange)
+
+                Image(systemName: "arrow.right").foregroundColor(.gray)
+                Text("MOD").font(.caption).foregroundColor(audioEngine.modEnabled ? .blue : .gray)
+
+                Image(systemName: "arrow.right").foregroundColor(.gray)
+                Text("CAB").font(.caption).foregroundColor(audioEngine.cabSim.activeModel != .bypass ? .green : .gray)
+            }
             
-            Text("OUT")
-                .font(.caption)
-                .foregroundColor(.gray)
+            Group {
+                Image(systemName: "arrow.right").foregroundColor(.gray)
+                Text("DLY").font(.caption).foregroundColor(audioEngine.delayEnabled ? .orange : .gray)
+
+                Image(systemName: "arrow.right").foregroundColor(.gray)
+                Text("REV").font(.caption).foregroundColor(audioEngine.reverbEnabled ? .orange : .gray)
+
+                Image(systemName: "arrow.right").foregroundColor(.gray)
+                Text("OUT").font(.caption).foregroundColor(.gray)
+            }
         }
         .padding(8)
         .background(Color.black.opacity(0.3))
