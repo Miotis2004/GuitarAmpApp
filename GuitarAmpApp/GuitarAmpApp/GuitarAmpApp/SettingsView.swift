@@ -1,4 +1,5 @@
 import SwiftUI
+import CoreAudio
 
 struct SettingsView: View {
     @ObservedObject var deviceManager: AudioDeviceManager

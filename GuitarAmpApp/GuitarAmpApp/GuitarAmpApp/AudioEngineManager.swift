@@ -153,14 +153,28 @@ class AudioEngineManager: ObservableObject {
     }
 
     func setInputDevice(id: AudioObjectID) {
+        // Changing devices requires restarting the engine to handle format changes
+        let wasRunning = engine.isRunning
+        if wasRunning { engine.stop() }
+
         deviceManager.setInputDevice(id: id, for: inputNode)
+
+        // Give CoreAudio a moment to switch
+        if wasRunning {
+            try? engine.start()
+        }
     }
 
     func setOutputDevice(id: AudioObjectID) {
-        deviceManager.setOutputDevice(id: id, for: mainMixer) // MainMixer connects to OutputNode implicitly?
-        // Actually, mainMixer connects to engine.outputNode.
-        // We should set the device on engine.outputNode.
+        let wasRunning = engine.isRunning
+        if wasRunning { engine.stop() }
+
+        // We set the device on engine.outputNode
         deviceManager.setOutputDevice(id: id, for: engine.outputNode)
+
+        if wasRunning {
+            try? engine.start()
+        }
     }
     
     private func setupAudioSession() {
