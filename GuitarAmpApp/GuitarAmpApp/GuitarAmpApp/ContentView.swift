@@ -3,6 +3,8 @@ import SwiftUI
 struct ContentView: View {
     @StateObject private var audioEngine = AudioEngineManager()
     @State private var showingPermissionAlert = false
+    @State private var showingSettings = false
+    @State private var showingTuner = false
     
     var body: some View {
         ZStack {
@@ -24,7 +26,15 @@ struct ContentView: View {
                 // Pedal board
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 30) {
+                        // Pre-Amp
+                        NoiseGateView(audioEngine: audioEngine)
+                        CompressorPedalView(audioEngine: audioEngine)
                         OverdrivePedalView(audioEngine: audioEngine)
+
+                        Divider().background(Color.gray)
+
+                        // FX Loop (Logically here, visually grouping pedals)
+                        ModulationPedalView(audioEngine: audioEngine)
                         DelayPedalView(audioEngine: audioEngine)
                         ReverbPedalView(audioEngine: audioEngine)
                     }
@@ -69,6 +79,29 @@ struct ContentView: View {
             Spacer()
             
             // Power button
+            // Settings Button
+            Button(action: { showingSettings = true }) {
+                Image(systemName: "gearshape.fill")
+                    .font(.system(size: 20))
+                    .foregroundColor(.gray)
+            }
+            .buttonStyle(.plain)
+            .popover(isPresented: $showingSettings) {
+                SettingsView(audioEngine: audioEngine)
+            }
+
+            // Tuner Button
+            Button(action: { showingTuner = true }) {
+                Image(systemName: "tuningfork")
+                    .font(.system(size: 20))
+                    .foregroundColor(showingTuner ? .orange : .gray)
+            }
+            .buttonStyle(.plain)
+            .sheet(isPresented: $showingTuner) {
+                TunerView(tuner: audioEngine.tuner)
+            }
+
+            // Power button
             Button(action: {
                 if audioEngine.isEngineRunning {
                     audioEngine.stop()
@@ -87,44 +120,40 @@ struct ContentView: View {
     
     private var signalFlowView: some View {
         HStack(spacing: 8) {
-            Text("INPUT")
+            Text("IN")
                 .font(.caption)
                 .foregroundColor(.gray)
             
-            Image(systemName: "arrow.right")
-                .foregroundColor(.orange)
+            Group {
+                Image(systemName: "arrow.right").foregroundColor(.gray)
+                Text("GATE").font(.caption).foregroundColor(audioEngine.gateThreshold > 0 ? .green : .gray)
+
+                Image(systemName: "arrow.right").foregroundColor(.gray)
+                Text("CMP").font(.caption).foregroundColor(audioEngine.compEnabled ? .orange : .gray)
+
+                Image(systemName: "arrow.right").foregroundColor(.gray)
+                Text("OD").font(.caption).foregroundColor(audioEngine.distortionEnabled ? .orange : .gray)
+
+                Image(systemName: "arrow.right").foregroundColor(.gray)
+                Text("AMP").font(.caption).foregroundColor(.orange)
+
+                Image(systemName: "arrow.right").foregroundColor(.gray)
+                Text("MOD").font(.caption).foregroundColor(audioEngine.modEnabled ? .blue : .gray)
+
+                Image(systemName: "arrow.right").foregroundColor(.gray)
+                Text("CAB").font(.caption).foregroundColor(audioEngine.cabSim.activeModel != .bypass ? .green : .gray)
+            }
             
-            Text("OVERDRIVE")
-                .font(.caption)
-                .foregroundColor(audioEngine.distortionEnabled ? .orange : .gray)
-            
-            Image(systemName: "arrow.right")
-                .foregroundColor(.orange)
-            
-            Text("DELAY")
-                .font(.caption)
-                .foregroundColor(audioEngine.delayEnabled ? .orange : .gray)
-            
-            Image(systemName: "arrow.right")
-                .foregroundColor(.orange)
-            
-            Text("REVERB")
-                .font(.caption)
-                .foregroundColor(audioEngine.reverbEnabled ? .orange : .gray)
-            
-            Image(systemName: "arrow.right")
-                .foregroundColor(.orange)
-            
-            Text("AMP")
-                .font(.caption)
-                .foregroundColor(.orange)
-            
-            Image(systemName: "arrow.right")
-                .foregroundColor(.orange)
-            
-            Text("OUTPUT")
-                .font(.caption)
-                .foregroundColor(.gray)
+            Group {
+                Image(systemName: "arrow.right").foregroundColor(.gray)
+                Text("DLY").font(.caption).foregroundColor(audioEngine.delayEnabled ? .orange : .gray)
+
+                Image(systemName: "arrow.right").foregroundColor(.gray)
+                Text("REV").font(.caption).foregroundColor(audioEngine.reverbEnabled ? .orange : .gray)
+
+                Image(systemName: "arrow.right").foregroundColor(.gray)
+                Text("OUT").font(.caption).foregroundColor(.gray)
+            }
         }
         .padding(8)
         .background(Color.black.opacity(0.3))

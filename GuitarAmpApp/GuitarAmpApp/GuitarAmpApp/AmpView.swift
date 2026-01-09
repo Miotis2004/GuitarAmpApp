@@ -161,6 +161,12 @@ struct AmpView: View {
                     .padding(.vertical, 6)
                     .background(Color.black.opacity(0.3))
                     .cornerRadius(6)
+
+                Spacer()
+
+                // Cab Sim Integration
+                CabSimView(cabSim: audioEngine.cabSim)
+                    .scaleEffect(0.9)
             }
             .padding(.bottom, 10)
         }
