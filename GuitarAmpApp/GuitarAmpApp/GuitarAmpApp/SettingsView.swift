@@ -2,7 +2,7 @@ import SwiftUI
 import CoreAudio
 
 struct SettingsView: View {
-    @ObservedObject var deviceManager: AudioDeviceManager
+    @ObservedObject var audioEngine: AudioEngineManager
     @Environment(\.presentationMode) var presentationMode
 
     var body: some View {
@@ -13,22 +13,21 @@ struct SettingsView: View {
 
             Form {
                 Section(header: Text("Input Device")) {
-                    Picker("Input", selection: $deviceManager.currentInputDeviceID) {
-                        ForEach(deviceManager.inputDevices, id: \.id) { device in
+                    Picker("Input", selection: $audioEngine.deviceManager.currentInputDeviceID) {
+                        ForEach(audioEngine.deviceManager.inputDevices, id: \.id) { device in
                             Text(device.name).tag(device.id as AudioObjectID?)
                         }
                     }
-                    .onChange(of: deviceManager.currentInputDeviceID) { newID in
-                        // The actual setting logic happens in AudioEngineManager or via a binding,
-                        // but here we just update the ID.
-                        // Note: To actually CHANGE the device on the engine, we need to call setInputDevice.
-                        // We will handle this in the parent view or AudioEngineManager.
+
+                    Picker("Input Channel", selection: $audioEngine.inputChannel) {
+                        Text("Channel 1").tag(0)
+                        Text("Channel 2").tag(1)
                     }
                 }
 
                 Section(header: Text("Output Device")) {
-                    Picker("Output", selection: $deviceManager.currentOutputDeviceID) {
-                        ForEach(deviceManager.outputDevices, id: \.id) { device in
+                    Picker("Output", selection: $audioEngine.deviceManager.currentOutputDeviceID) {
+                        ForEach(audioEngine.deviceManager.outputDevices, id: \.id) { device in
                             Text(device.name).tag(device.id as AudioObjectID?)
                         }
                     }

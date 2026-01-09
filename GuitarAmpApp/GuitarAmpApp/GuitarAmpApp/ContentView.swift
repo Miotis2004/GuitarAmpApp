@@ -87,7 +87,7 @@ struct ContentView: View {
             }
             .buttonStyle(.plain)
             .popover(isPresented: $showingSettings) {
-                SettingsView(deviceManager: audioEngine.deviceManager)
+                SettingsView(audioEngine: audioEngine)
             }
 
             // Tuner Button

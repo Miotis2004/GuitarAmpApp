@@ -16,9 +16,13 @@ class Tuner: ObservableObject {
     private let sampleRate: Float = 44100.0
     private let bufferSize: Int = 4096
 
-    func process(buffer: AVAudioPCMBuffer) {
+    func process(buffer: AVAudioPCMBuffer, channel: Int = 0) {
         guard let channelData = buffer.floatChannelData else { return }
-        let channelDataValue = channelData.pointee
+        // Ensure channel index is valid
+        let ch = min(max(0, channel), Int(buffer.format.channelCount) - 1)
+
+        // Access the specific channel pointer
+        let channelDataValue = channelData[ch]
         let frames = Int(buffer.frameLength)
 
         // Use UnsafeBufferPointer to avoid array allocation

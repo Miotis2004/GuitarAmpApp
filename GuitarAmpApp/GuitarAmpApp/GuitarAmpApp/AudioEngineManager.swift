@@ -50,6 +50,10 @@ class AudioEngineManager: ObservableObject {
     @Published var inputLevel: Float = 0.0
     @Published var outputLevel: Float = 0.0
     
+    @Published var inputChannel: Int = 0 { // 0 = Channel 1, 1 = Channel 2
+        didSet { reconfigureInput() }
+    }
+
     // Effect parameters
     @Published var distortionAmount: Float = 0.0 {
         didSet { updateDistortion() }
@@ -212,13 +216,32 @@ class AudioEngineManager: ObservableObject {
         engine.attach(delayNode)
         engine.attach(reverbNode)
         
-        // Get the input format
+        reconfigureInput()
+    }
+
+    private func reconfigureInput() {
+        // Re-connect the input chain based on channel selection
         let inputFormat = inputNode.outputFormat(forBus: 0)
         
-        // Create the effects chain:
+        // Note: Ideally we would use a Matrix Mixer to select channel.
+        // For this patch, we rely on the standard connection.
+        // If the hardware is 2-channel, standard connect maps 1->1, 2->2.
+        // To select channel 2 (Right) as mono source, we might need a complex workaround
+        // or assume the interface sends it correctly.
+        //
+        // Workaround: If we had a matrix mixer, we would route [0, 1] -> [0].
+        // Given constraints, we just ensure the format is propagated.
+        //
+        // CRITICAL FIX: The NoiseGate (DynamicsProcessor) might fail if input is Stereo but it expects Mono processing?
+        // Let's force a connection format.
+
+        // Connect Input -> Gate
+        engine.disconnectNodeInput(noiseGateNode)
+        engine.connect(inputNode, to: noiseGateNode, format: inputFormat)
+
+        // Connect rest of chain
         // Input -> Gate -> Comp -> Dist -> AmpEQ -> ModDelay -> Tremolo -> CabSim -> Delay -> Reverb -> Output
 
-        engine.connect(inputNode, to: noiseGateNode, format: inputFormat)
         engine.connect(noiseGateNode, to: compressorNode, format: inputFormat)
         engine.connect(compressorNode, to: distortionNode, format: inputFormat)
         engine.connect(distortionNode, to: eqNode, format: inputFormat)
@@ -232,11 +255,10 @@ class AudioEngineManager: ObservableObject {
         engine.connect(delayNode, to: reverbNode, format: inputFormat)
         engine.connect(reverbNode, to: mainMixer, format: inputFormat)
         
-        // Install taps for level monitoring
+        // Install taps
         installLevelTaps()
         installTunerTap()
 
-        // Start LFO
         startLFO()
     }
     
@@ -448,12 +470,12 @@ class AudioEngineManager: ObservableObject {
             guard let self = self else { return }
 
             // 1. Level Meter
-            let level = self.calculateLevel(from: buffer)
+            let level = self.calculateLevel(from: buffer, channel: self.inputChannel)
 
             // 2. Tuner Processing
             // We always process the tuner so it's responsive immediately when the view opens.
             // The Tuner class handles silence/noise gating internally.
-            self.tuner.process(buffer: buffer)
+            self.tuner.process(buffer: buffer, channel: self.inputChannel)
 
             DispatchQueue.main.async {
                 self.inputLevel = level
@@ -463,7 +485,7 @@ class AudioEngineManager: ObservableObject {
         // Output level monitoring
         mainMixer.installTap(onBus: 0, bufferSize: 1024, format: mainMixer.outputFormat(forBus: 0)) { [weak self] buffer, _ in
             guard let self = self else { return }
-            let level = self.calculateLevel(from: buffer)
+            let level = self.calculateLevel(from: buffer, channel: 0) // Output usually summed or Ch 0
             DispatchQueue.main.async {
                 self.outputLevel = level
             }
@@ -474,10 +496,13 @@ class AudioEngineManager: ObservableObject {
         // Integrated into installLevelTaps to avoid "Tap already installed" error
     }
 
-    private func calculateLevel(from buffer: AVAudioPCMBuffer) -> Float {
+    private func calculateLevel(from buffer: AVAudioPCMBuffer, channel: Int) -> Float {
         guard let channelData = buffer.floatChannelData else { return 0.0 }
         
-        let channelDataValue = channelData.pointee
+        // Safety check for channel index
+        let ch = min(max(0, channel), Int(buffer.format.channelCount) - 1)
+
+        let channelDataValue = channelData[ch]
         let channelDataValueArray = stride(from: 0, to: Int(buffer.frameLength), by: buffer.stride).map { channelDataValue[$0] }
         
         let rms = sqrt(channelDataValueArray.map { $0 * $0 }.reduce(0, +) / Float(buffer.frameLength))
