@@ -3,6 +3,7 @@ import CoreAudio
 
 struct SettingsView: View {
     @ObservedObject var audioEngine: AudioEngineManager
+    @ObservedObject var deviceManager: AudioDeviceManager
     @Environment(\.presentationMode) var presentationMode
 
     var body: some View {
@@ -13,8 +14,8 @@ struct SettingsView: View {
 
             Form {
                 Section(header: Text("Input Device")) {
-                    Picker("Input", selection: $audioEngine.deviceManager.currentInputDeviceID) {
-                        ForEach(audioEngine.deviceManager.inputDevices, id: \.id) { device in
+                    Picker("Input", selection: $deviceManager.currentInputDeviceID) {
+                        ForEach(deviceManager.inputDevices, id: \.id) { device in
                             Text(device.name).tag(device.id as AudioObjectID?)
                         }
                     }
@@ -26,8 +27,8 @@ struct SettingsView: View {
                 }
 
                 Section(header: Text("Output Device")) {
-                    Picker("Output", selection: $audioEngine.deviceManager.currentOutputDeviceID) {
-                        ForEach(audioEngine.deviceManager.outputDevices, id: \.id) { device in
+                    Picker("Output", selection: $deviceManager.currentOutputDeviceID) {
+                        ForEach(deviceManager.outputDevices, id: \.id) { device in
                             Text(device.name).tag(device.id as AudioObjectID?)
                         }
                     }
